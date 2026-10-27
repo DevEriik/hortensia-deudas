@@ -1,69 +1,201 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
+import { HandCoins, PlusCircle, Users, Wallet } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { Cliente } from "@/tipos/fiados";
+import {
+  formatearMoneda,
+  formatearFechaLarga,
+} from "@/utilidades/formateadores";
+import { Card, CardContent } from "@/components/ui/card";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+
+export default function PaginaInicio() {
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [cargando, setCargando] = useState(true);
+  const [fechaHoy, setFechaHoy] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [montado, setMontado] = useState(false);
+
+  useEffect(() => {
+    setMontado(true);
+  }, []);
+
+  const cargarClientes = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from("clientes")
+        .select("*")
+        .order("saldo_pendiente", { ascending: false });
+
+      if (error) throw error;
+
+      setClientes((data as Cliente[]) || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setCargando(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    cargarClientes();
+  }, [cargarClientes]);
+
+  useEffect(() => {
+    setFechaHoy(formatearFechaLarga(new Date()));
+  }, []);
+
+  const clientesConDeuda = clientes.filter(
+    (cliente) => Number(cliente.saldo_pendiente) > 0.001,
+  );
+
+  const totalPorCobrar = clientesConDeuda.reduce(
+    (suma, cliente) => suma + Number(cliente.saldo_pendiente),
+    0,
+  );
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <main className="flex flex-1 flex-col pb-10">
+      <header className="px-6 pt-8">
+        <p className="text-sm capitalize text-muted-foreground">
+          {fechaHoy || " "}
+        </p>
+        <h1 className="mt-1 text-3xl font-semibold tracking-tight">
+          Hortensia
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">Control de fiados</p>
+      </header>
+
+      <section className="mt-6 px-6">
+        <Card className="border-border/80 shadow-sm">
+          <CardContent className="flex items-start justify-between p-5">
+            <div>
+              <p className="text-sm text-muted-foreground">Total por cobrar</p>
+              {cargando ? (
+                <div className="mt-2 h-9 w-40 animate-pulse rounded-md bg-muted" />
+              ) : (
+                <p className="mt-1 text-3xl font-semibold tracking-tight">
+                  {formatearMoneda(totalPorCobrar)}
+                </p>
+              )}
+              <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
+                <Users className="h-4 w-4" />
+                <span>
+                  {!montado || cargando
+                    ? "Cargando..."
+                    : `${clientesConDeuda.length} ${
+                        clientesConDeuda.length === 1 ? "cliente" : "clientes"
+                      } con deuda`}
+                </span>
+              </div>
+            </div>
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+              <Wallet className="h-5 w-5" />
+            </div>
+          </CardContent>
+        </Card>
+      </section>
+
+      <section className="mt-6 px-6">
+        <h2 className="mb-3 text-sm font-medium text-muted-foreground">
+          Accesos rápidos
+        </h2>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Link href="/nueva-salida">
+            <Card className="border-border/80 transition-colors hover:bg-muted/40">
+              <CardContent className="flex flex-col gap-3 p-4">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
+                  <PlusCircle className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="font-medium">Nueva salida</p>
+                  <p className="text-sm text-muted-foreground">
+                    Registrar fiado
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+          <Link href="/nuevo-abono">
+            <Card className="border-border/80 transition-colors hover:bg-muted/40">
+              <CardContent className="flex flex-col gap-3 p-4">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
+                  <HandCoins className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="font-medium">Registrar abono</p>
+                  <p className="text-sm text-muted-foreground">Anotar pago</p>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+      </section>
+
+      <section className="mt-8 px-6">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-medium text-muted-foreground">
+            Clientes con deuda
+          </h2>
+          <Link
+            href="/clientes"
+            className={cn(
+              buttonVariants({ variant: "ghost", size: "sm" }),
+              "h-8 px-2",
+            )}
           >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            Ver todos
+          </Link>
         </div>
-      </main>
-    </div>
+
+        {cargando && (
+          <div className="space-y-2">
+            <div className="h-14 w-full animate-pulse rounded-lg bg-muted" />
+            <div className="h-14 w-full animate-pulse rounded-lg bg-muted" />
+            <div className="h-14 w-full animate-pulse rounded-lg bg-muted" />
+          </div>
+        )}
+
+        {!cargando && clientesConDeuda.length === 0 && (
+          <Card className="border-border/80">
+            <CardContent className="flex flex-col items-center justify-center py-8 text-center">
+              <p className="font-medium">Sin deudas pendientes</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Todos los clientes están al corriente
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {!cargando && clientesConDeuda.length > 0 && (
+          <div className="space-y-2">
+            {clientesConDeuda.slice(0, 6).map((cliente) => (
+              <Link key={cliente.id} href={`/clientes/${cliente.id}`}>
+                <Card className="border-border/80 transition-colors hover:bg-muted/40">
+                  <CardContent className="flex items-center justify-between p-4">
+                    <div>
+                      <p className="font-medium">{cliente.nombre}</p>
+                      {cliente.telefono && (
+                        <p className="text-sm text-muted-foreground">
+                          {cliente.telefono}
+                        </p>
+                      )}
+                    </div>
+                    <p className="font-medium text-destructive">
+                      {formatearMoneda(cliente.saldo_pendiente)}
+                    </p>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
+    </main>
   );
 }
